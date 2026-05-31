@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supplier Risk Intelligence — SIS Assessment Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c24;
+    --border: #1e2430;
+    --border-bright: #2a3040;
+    --text: #e8ecf4;
+    --text-muted: #5a6480;
+    --text-dim: #8a94aa;
+    --low: #00e5a0;
+    --low-bg: rgba(0,229,160,0.08);
+    --low-border: rgba(0,229,160,0.25);
+    --med: #f5a623;
+    --med-bg: rgba(245,166,35,0.08);
+    --med-border: rgba(245,166,35,0.25);
+    --high: #ff4d6d;
+    --high-bg: rgba(255,77,109,0.08);
+    --high-border: rgba(255,77,109,0.25);
+    --accent: #4d8fff;
+    --accent-bg: rgba(77,143,255,0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* GRID BACKGROUND */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(77,143,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(77,143,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; max-width: 1300px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--border);
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .header-left {}
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(22px, 3vw, 34px);
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.15;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .header-sub {
+    margin-top: 8px;
+    color: var(--text-dim);
+    font-size: 13px;
+    max-width: 520px;
+  }
+
+  /* RISK BADGE LEGEND */
+  .risk-legend {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-self: center;
+  }
+
+  .risk-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    border: 1px solid;
+    text-transform: uppercase;
+    cursor: default;
+  }
+
+  .risk-badge.low { color: var(--low); background: var(--low-bg); border-color: var(--low-border); }
+  .risk-badge.med { color: var(--med); background: var(--med-bg); border-color: var(--med-border); }
+  .risk-badge.high { color: var(--high); background: var(--high-bg); border-color: var(--high-border); }
+
+  .risk-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* NAV TABS */
+  .nav {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 28px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    width: fit-content;
+    flex-wrap: wrap;
+  }
+
+  .nav-btn {
+    padding: 9px 20px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+  }
+
+  .nav-btn:hover { color: var(--text-dim); background: var(--surface2); }
+
+  .nav-btn.active {
+    background: var(--accent-bg);
+    color: var(--accent);
+    border: 1px solid rgba(77,143,255,0.3);
+  }
+
+  /* VIEWS */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ===== REFERENCE VIEW ===== */
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .risk-matrix {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+
+  @media (max-width: 700px) { .risk-matrix { grid-template-columns: 1fr; } }
+
+  .risk-card {
+    border-radius: 10px;
+    border: 1px solid;
+    overflow: hidden;
+    transition: transform 0.2s;
+  }
+
+  .risk-card:hover { transform: translateY(-2px); }
+
+  .risk-card.low { background: var(--low-bg); border-color: var(--low-border); }
+  .risk-card.med { background: var(--med-bg); border-color: var(--med-border); }
+  .risk-card.high { background: var(--high-bg); border-color: var(--high-border); }
+
+  .risk-card-head {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid;
+  }
+
+  .low .risk-card-head { border-color: var(--low-border); }
+  .med .risk-card-head { border-color: var(--med-border); }
+  .high .risk-card-head { border-color: var(--high-border); }
+
+  .risk-icon { font-size: 20px; }
+  .risk-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  .low .risk-label { color: var(--low); }
+  .med .risk-label { color: var(--med); }
+  .high .risk-label { color: var(--high); }
+
+  .risk-action {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    margin-left: auto;
+    padding: 3px 9px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .low .risk-action { background: rgba(0,229,160,0.15); color: var(--low); }
+  .med .risk-action { background: rgba(245,166,35,0.15); color: var(--med); }
+  .high .risk-action { background: rgba(255,77,109,0.15); color: var(--high); }
+
+  .risk-card-body { padding: 18px 20px; }
+
+  .risk-criteria { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+
+  .risk-criteria li {
+    display: flex;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .criteria-bullet {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    margin-top: 7px;
+    flex-shrink: 0;
+  }
+
+  .low .criteria-bullet { background: var(--low); }
+  .med .criteria-bullet { background: var(--med); }
+  .high .criteria-bullet { background: var(--high); }
+
+  /* SECTION PANELS */
+  .sections-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+
+  @media (max-width: 900px) { .sections-grid { grid-template-columns: 1fr; } }
+
+  .section-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .section-panel-head {
+    padding: 14px 18px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    border: 1px solid rgba(77,143,255,0.2);
+  }
+
+  .section-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .section-panel-body { padding: 16px 18px; }
+
+  .signal-group { margin-bottom: 14px; }
+
+  .signal-group-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .signal-group-label .sgl-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+
+  .low-label { color: var(--low); }
+  .low-label .sgl-dot { background: var(--low); }
+  .med-label { color: var(--med); }
+  .med-label .sgl-dot { background: var(--med); }
+  .high-label { color: var(--high); }
+  .high-label .sgl-dot { background: var(--high); }
+
+  .signals { display: flex; flex-wrap: wrap; gap: 5px; }
+
+  .signal-chip {
+    font-size: 11px;
+    padding: 4px 9px;
+    border-radius: 4px;
+    border: 1px solid;
+    color: var(--text-dim);
+    background: var(--surface);
+    border-color: var(--border-bright);
+    line-height: 1.3;
+  }
+
+  /* ESCALATION FACTORS */
+  .escalation-box {
+    background: rgba(255,77,109,0.05);
+    border: 1px solid rgba(255,77,109,0.15);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 36px;
+  }
+
+  .escalation-box h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--high);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .escalation-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+  }
+
+  .escalation-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .escalation-item::before {
+    content: '⚠';
+    color: var(--high);
+    font-size: 11px;
+    margin-top: 1px;
+    flex-shrink: 0;
+  }
+
+  /* ===== DECISION TOOL VIEW ===== */
+  .decision-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) { .decision-layout { grid-template-columns: 1fr; } }
+
+  .question-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .qblock-head {
+    padding: 16px 20px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .qblock-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .progress-bar {
+    flex: 1;
+    max-width: 200px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .progress-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  .questions-list { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+  .question-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: border-color 0.2s;
+  }
+
+  .question-item.answered { border-color: var(--border-bright); }
+
+  .q-number {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .q-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+
+  .q-options { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .q-opt {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-bright);
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.16s;
+  }
+
+  .q-opt:hover { border-color: var(--accent); color: var(--text); }
+
+  .q-opt.selected-low { background: var(--low-bg); border-color: var(--low-border); color: var(--low); }
+  .q-opt.selected-med { background: var(--med-bg); border-color: var(--med-border); color: var(--med); }
+  .q-opt.selected-high { background: var(--high-bg); border-color: var(--high-border); color: var(--high); }
+
+  .q-hint {
+    margin-top: 10px;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-style: italic;
+    line-height: 1.5;
+    display: none;
+    background: var(--bg);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border-left: 2px solid var(--accent);
+  }
+
+  .q-hint.show { display: block; }
+
+  /* RESULT PANEL */
+  .result-panel {
+    position: sticky;
+    top: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .result-head {
+    padding: 16px 20px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .result-head h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .result-body { padding: 20px; }
+
+  .result-score-ring {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 20px;
+    position: relative;
+  }
+
+  .result-score-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+
+  .ring-bg { fill: none; stroke: var(--border); stroke-width: 8; }
+  .ring-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
+
+  .ring-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ring-score {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .ring-sublabel {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .result-verdict {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .verdict-tag {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    border: 1px solid;
+  }
+
+  .verdict-low { color: var(--low); background: var(--low-bg); border-color: var(--low-border); }
+  .verdict-med { color: var(--med); background: var(--med-bg); border-color: var(--med-border); }
+  .verdict-high { color: var(--high); background: var(--high-bg); border-color: var(--high-border); }
+  .verdict-none { color: var(--text-muted); background: var(--surface2); border-color: var(--border); }
+
+  .breakdown { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+
+  .breakdown-row { display: flex; flex-direction: column; gap: 4px; }
+
+  .breakdown-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .breakdown-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .breakdown-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+
+  .fill-low { background: var(--low); }
+  .fill-med { background: var(--med); }
+  .fill-high { background: var(--high); }
+
+  .actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+
+  .action-item {
+    display: flex;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.4;
+    padding: 8px 10px;
+    background: var(--surface2);
+    border-radius: 6px;
+    border-left: 2px solid;
+  }
+
+  .action-item.low { border-color: var(--low); }
+  .action-item.med { border-color: var(--med); }
+  .action-item.high { border-color: var(--high); }
+
+  .reset-btn {
+    width: 100%;
+    padding: 11px;
+    border-radius: 7px;
+    border: 1px solid var(--border-bright);
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+
+  .reset-btn:hover { background: var(--surface2); color: var(--text); border-color: var(--accent); }
+
+  /* ===== CHEAT SHEET VIEW ===== */
+  .cheatsheet {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+
+  .cs-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .cs-card-head {
+    padding: 12px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cs-icon { font-size: 14px; }
+
+  .cs-card-body { padding: 14px 16px; }
+
+  .cs-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    align-items: flex-start;
+  }
+
+  .cs-level {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .cs-level.low { background: var(--low-bg); color: var(--low); border: 1px solid var(--low-border); }
+  .cs-level.med { background: var(--med-bg); color: var(--med); border: 1px solid var(--med-border); }
+  .cs-level.high { background: var(--high-bg); color: var(--high); border: 1px solid var(--high-border); }
+
+  .cs-text { color: var(--text-dim); line-height: 1.5; }
+
+  /* KEY DIFFERENTIATORS */
+  .differ-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 28px;
+  }
+
+  .differ-table th {
+    text-align: left;
+    padding: 10px 14px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: var(--surface2);
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .differ-table th:nth-child(2) { color: var(--low); }
+  .differ-table th:nth-child(3) { color: var(--med); }
+  .differ-table th:nth-child(4) { color: var(--high); }
+
+  .differ-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  .differ-table tr:last-child td { border-bottom: none; }
+
+  .differ-table td:first-child {
+    color: var(--text);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .differ-table td:nth-child(2) { background: rgba(0,229,160,0.02); }
+  .differ-table td:nth-child(3) { background: rgba(245,166,35,0.02); }
+  .differ-table td:nth-child(4) { background: rgba(255,77,109,0.02); }
+
+  .differ-table tr:hover td { filter: brightness(1.1); }
+
+  /* Tooltip */
+  .tooltip-wrap { position: relative; display: inline-flex; }
+  .tooltip-icon {
+    width: 14px; height: 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border-bright);
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: var(--text-muted);
+    cursor: help;
+    margin-left: 4px;
+  }
+
+  /* Filters */
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-bright);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.16s;
+  }
+
+  .filter-btn.active { background: var(--accent-bg); color: var(--accent); border-color: rgba(77,143,255,0.3); }
+
+  /* Section selector for decision tool */
+  .section-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+
+  .section-sel-btn {
+    flex: 1;
+    min-width: 120px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border-bright);
+    background: var(--surface);
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.18s;
+    text-align: center;
+  }
+
+  .section-sel-btn:hover { border-color: var(--accent); color: var(--text); }
+  .section-sel-btn.active { background: var(--accent-bg); border-color: rgba(77,143,255,0.4); color: var(--accent); }
+
+  /* Animations */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .view.active { animation: fadeIn 0.25s ease; }
+
+  .question-item { animation: fadeIn 0.2s ease both; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="eyebrow">SIS · Supplier Risk Intelligence</div>
+      <h1>Third-Party Risk<br><span>Assessment Engine</span></h1>
+      <p class="header-sub">Master TPSQ · Cloud · AI risk rating. Know exactly what makes a supplier Low, Medium, or High risk — and why.</p>
+    </div>
+    <div class="risk-legend">
+      <div class="risk-badge low"><div class="dot"></div> Low Risk</div>
+      <div class="risk-badge med"><div class="dot"></div> Medium Risk</div>
+      <div class="risk-badge high"><div class="dot"></div> High Risk</div>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div class="nav">
+    <button class="nav-btn active" onclick="switchView('reference')">📚 Reference Guide</button>
+    <button class="nav-btn" onclick="switchView('decision')">🔍 Decision Tool</button>
+    <button class="nav-btn" onclick="switchView('cheatsheet')">⚡ Quick Cheat Sheet</button>
+    <button class="nav-btn" onclick="switchView('table')">📊 Comparison Table</button>
+  </div>
+
+  <!-- ===== VIEW: REFERENCE ===== -->
+  <div id="view-reference" class="view active">
+
+    <div class="section-title">Core Risk Tiers — What Each Level Means</div>
+    <div class="risk-matrix">
+
+      <div class="risk-card low">
+        <div class="risk-card-head">
+          <span class="risk-icon">🟢</span>
+          <span class="risk-label">LOW RISK</span>
+          <span class="risk-action">Standard Approval</span>
+        </div>
+        <div class="risk-card-body">
+          <ul class="risk-criteria">
+            <li><div class="criteria-bullet"></div>No access to personal, financial, or sensitive business data</li>
+            <li><div class="criteria-bullet"></div>Minimal or no integration with internal systems</li>
+            <li><div class="criteria-bullet"></div>Strong, verifiable security posture (ISO 27001 / SOC 2)</li>
+            <li><div class="criteria-bullet"></div>Mature policies: encryption, MFA, patch management in place</li>
+            <li><div class="criteria-bullet"></div>Low business impact if disrupted or breached</li>
+            <li><div class="criteria-bullet"></div>No regulatory data in scope (GDPR, HIPAA, PCI)</li>
+            <li><div class="criteria-bullet"></div>Clean incident history — no material breaches</li>
+            <li><div class="criteria-bullet"></div>Transparent, cooperative responses to TPSQ</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="risk-card med">
+        <div class="risk-card-head">
+          <span class="risk-icon">🟡</span>
+          <span class="risk-label">MEDIUM RISK</span>
+          <span class="risk-action">Enhanced Review</span>
+        </div>
+        <div class="risk-card-body">
+          <ul class="risk-criteria">
+            <li><div class="criteria-bullet"></div>Access to internal systems but limited sensitive data exposure</li>
+            <li><div class="criteria-bullet"></div>Security controls present but not independently certified</li>
+            <li><div class="criteria-bullet"></div>Some regulatory data in scope with partial controls</li>
+            <li><div class="criteria-bullet"></div>Minor or historical security incidents (resolved with evidence)</li>
+            <li><div class="criteria-bullet"></div>Business impact is moderate — recoverable within days</li>
+            <li><div class="criteria-bullet"></div>Subprocessors used but with visibility/controls</li>
+            <li><div class="criteria-bullet"></div>TPSQ responses are generally good with some gaps</li>
+            <li><div class="criteria-bullet"></div>Cloud/AI use is acknowledged with partial governance</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="risk-card high">
+        <div class="risk-card-head">
+          <span class="risk-icon">🔴</span>
+          <span class="risk-label">HIGH RISK</span>
+          <span class="risk-action">Senior Approval / Reject</span>
+        </div>
+        <div class="risk-card-body">
+          <ul class="risk-criteria">
+            <li><div class="criteria-bullet"></div>Access to critical PII, PHI, financial, or confidential IP</li>
+            <li><div class="criteria-bullet"></div>Deep system integration — admin/privileged access</li>
+            <li><div class="criteria-bullet"></div>No certifications, self-assessed only or assessments refused</li>
+            <li><div class="criteria-bullet"></div>Recent material breach, regulatory fine, or litigation</li>
+            <li><div class="criteria-bullet"></div>High business impact — operations would halt if disrupted</li>
+            <li><div class="criteria-bullet"></div>Regulatory data with insufficient or absent controls</li>
+            <li><div class="criteria-bullet"></div>Opacity: evasive, incomplete, or refused TPSQ responses</li>
+            <li><div class="criteria-bullet"></div>AI/Cloud with data leaving jurisdiction, no controls documented</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Risk Signals by SIS Section</div>
+    <div class="sections-grid">
+
+      <!-- TPSQ -->
+      <div class="section-panel">
+        <div class="section-panel-head">
+          <span class="section-tag">TPSQ</span>
+          <span class="section-name">Third Party Security Questionnaire</span>
+        </div>
+        <div class="section-panel-body">
+          <div class="signal-group">
+            <div class="signal-group-label low-label"><div class="sgl-dot"></div> Low signals</div>
+            <div class="signals">
+              <span class="signal-chip">ISO 27001 certified</span>
+              <span class="signal-chip">SOC 2 Type II</span>
+              <span class="signal-chip">Encryption at rest + transit</span>
+              <span class="signal-chip">MFA enforced</span>
+              <span class="signal-chip">Patch cycle ≤30 days</span>
+              <span class="signal-chip">Annual pen tests</span>
+              <span class="signal-chip">Incident response plan tested</span>
+            </div>
+          </div>
+          <div class="signal-group">
+            <div class="signal-group-label med-label"><div class="sgl-dot"></div> Medium signals</div>
+            <div class="signals">
+              <span class="signal-chip">Self-assessed only</span>
+              <span class="signal-chip">MFA not universal</span>
+              <span class="signal-chip">Pen test >12 months old</span>
+              <span class="signal-chip">No DR test evidence</span>
+              <span class="signal-chip">Partial encryption</span>
+              <span class="signal-chip">Old minor incident</span>
+            </div>
+          </div>
+          <div class="signal-group">
+            <div class="signal-group-label high-label"><div class="sgl-dot"></div> High signals</div>
+            <div class="signals">
+              <span class="signal-chip">No certifications</span>
+              <span class="signal-chip">TPSQ refused/partial</span>
+              <span class="signal-chip">Recent breach</span>
+              <span class="signal-chip">No encryption documented</span>
+              <span class="signal-chip">No IRP</span>
+              <span class="signal-chip">Regulatory fine</span>
+              <span class="signal-chip">No access controls</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CLOUD -->
+      <div class="section-panel">
+        <div class="section-panel-head">
+          <span class="section-tag">CLOUD</span>
+          <span class="section-name">Cloud Security Questions</span>
+        </div>
+        <div class="section-panel-body">
+          <div class="signal-group">
+            <div class="signal-group-label low-label"><div class="sgl-dot"></div> Low signals</div>
+            <div class="signals">
+              <span class="signal-chip">Data stays in jurisdiction</span>
+              <span class="signal-chip">CSP-level certifications</span>
+              <span class="signal-chip">CSPM tooling in use</span>
+              <span class="signal-chip">Shared responsibility documented</span>
+              <span class="signal-chip">Customer data isolated</span>
+              <span class="signal-chip">Encryption keys managed by client</span>
+            </div>
+          </div>
+          <div class="signal-group">
+            <div class="signal-group-label med-label"><div class="sgl-dot"></div> Medium signals</div>
+            <div class="signals">
+              <span class="signal-chip">Multi-region but controlled</span>
+              <span class="signal-chip">Shared tenancy (standard)</span>
+              <span class="signal-chip">Logging in place, no SIEM</span>
+              <span class="signal-chip">Backup exists, untested</span>
+              <span class="signal-chip">Some vendor lock-in</span>
+            </div>
+          </div>
+          <div class="signal-group">
+            <div class="signal-group-label high-label"><div class="sgl-dot"></div> High signals</div>
+            <div class="signals">
+              <span class="signal-chip">Data leaves jurisdiction</span>
+              <span class="signal-chip">No data residency controls</span>
+              <span class="signal-chip">No isolation between tenants</span>
+              <span class="signal-chip">No audit logs</span>
+              <span class="signal-chip">Uncontrolled subprocessors</span>
+              <span class="signal-chip">No exit strategy</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI -->
+      <div class="section-panel">
+        <div class="section-panel-head">
+          <span class="section-tag">AI</span>
+          <span class="section-name">Artificial Intelligence Questions</span>
+        </div>
+        <div class="section-panel-body">
+          <div class="signal-group">
+            <div class="signal-group-label low-label"><div class="sgl-dot"></div> Low signals</div>
+            <div class="signals">
+              <span class="signal-chip">AI doesn't process org data</span>
+              <span class="signal-chip">No training on client data</span>
+              <span class="signal-chip">AI governance policy exists</span>
+              <span class="signal-chip">Model outputs reviewed by humans</span>
+              <span class="signal-chip">Explainability documented</span>
+              <span class="signal-chip">Bias testing done</span>
+            </div>
+          </div>
+          <div class="signal-group">
+            <div class="signal-group-label med-label"><div class="sgl-dot"></div> Medium signals</div>
+            <div class="signals">
+              <span class="signal-chip">AI processes non-sensitive data</span>
+              <span class="signal-chip">Partial AI governance</span>
+              <span class="signal-chip">3rd-party model (e.g. OpenAI)</span>
+              <span class="signal-chip">Limited explainability</span>
+              <span class="signal-chip">Human review in critical flows only</span>
+            </div>
+          </div>
+          <div class="signal-group">
+            <div class="signal-group-label high-label"><div class="sgl-dot"></div> High signals</div>
+            <div class="signals">
+              <span class="signal-chip">PII/PHI fed into AI</span>
+              <span class="signal-chip">No opt-out from training</span>
+              <span class="signal-chip">AI decisions = automated actions</span>
+              <span class="signal-chip">No bias/fairness testing</span>
+              <span class="signal-chip">No AI usage policy</span>
+              <span class="signal-chip">Shadow AI usage</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="escalation-box">
+      <h3>⚠️ Automatic Escalation Triggers — Any One of These = Immediate High Risk</h3>
+      <div class="escalation-grid">
+        <div class="escalation-item">Confirmed data breach in last 24 months</div>
+        <div class="escalation-item">Regulatory action / fine (GDPR, ICO, FCA, SEC)</div>
+        <div class="escalation-item">Refusal to complete TPSQ or provide evidence</div>
+        <div class="escalation-item">Personal data leaving agreed jurisdiction without controls</div>
+        <div class="escalation-item">No encryption for data at rest or in transit</div>
+        <div class="escalation-item">AI system makes autonomous decisions on sensitive data</div>
+        <div class="escalation-item">Privileged / admin access with no PAM controls</div>
+        <div class="escalation-item">No incident response plan for a critical-tier supplier</div>
+        <div class="escalation-item">Uncontrolled subprocessors handling your data</div>
+        <div class="escalation-item">Evidence of shadow IT / unauthorised cloud use</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ===== VIEW: DECISION TOOL ===== -->
+  <div id="view-decision" class="view">
+
+    <div class="section-selector">
+      <button class="section-sel-btn active" onclick="selectSection('all', this)">All Sections</button>
+      <button class="section-sel-btn" onclick="selectSection('tpsq', this)">TPSQ Only</button>
+      <button class="section-sel-btn" onclick="selectSection('cloud', this)">Cloud Only</button>
+      <button class="section-sel-btn" onclick="selectSection('ai', this)">AI Only</button>
+    </div>
+
+    <div class="decision-layout">
+      <div>
+        <div class="question-block">
+          <div class="qblock-head">
+            <span class="qblock-label">Assessment Questions</span>
+            <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+            <span class="progress-text" id="progress-text">0 / 0</span>
+          </div>
+          <div class="questions-list" id="questions-list"></div>
+        </div>
+      </div>
+
+      <div class="result-panel">
+        <div class="result-head"><h3>Risk Verdict</h3></div>
+        <div class="result-body">
+          <div class="result-score-ring">
+            <svg viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="52"/>
+              <circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="52" stroke="#1e2430"
+                stroke-dasharray="0 327" stroke-dashoffset="0"/>
+            </svg>
+            <div class="ring-label">
+              <span class="ring-score" id="ring-score" style="color: var(--text-muted)">—</span>
+              <span class="ring-sublabel">risk score</span>
+            </div>
+          </div>
+
+          <div class="result-verdict">
+            <span class="verdict-tag verdict-none" id="verdict-tag">Awaiting input</span>
+          </div>
+
+          <div class="breakdown" id="breakdown">
+            <div class="breakdown-row">
+              <div class="breakdown-label"><span>High signals</span><span id="pct-high">0%</span></div>
+              <div class="breakdown-bar"><div class="breakdown-fill fill-high" id="bar-high" style="width:0%"></div></div>
+            </div>
+            <div class="breakdown-row">
+              <div class="breakdown-label"><span>Medium signals</span><span id="pct-med">0%</span></div>
+              <div class="breakdown-bar"><div class="breakdown-fill fill-med" id="bar-med" style="width:0%"></div></div>
+            </div>
+            <div class="breakdown-row">
+              <div class="breakdown-label"><span>Low signals</span><span id="pct-low">0%</span></div>
+              <div class="breakdown-bar"><div class="breakdown-fill fill-low" id="bar-low" style="width:0%"></div></div>
+            </div>
+          </div>
+
+          <div class="actions-list" id="actions-list">
+            <div class="action-item med">Answer questions to see recommended actions</div>
+          </div>
+
+          <button class="reset-btn" onclick="resetAssessment()">↺ Reset Assessment</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== VIEW: CHEAT SHEET ===== -->
+  <div id="view-cheatsheet" class="view">
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="filterCheat('all', this)">All Topics</button>
+      <button class="filter-btn" onclick="filterCheat('tpsq', this)">TPSQ</button>
+      <button class="filter-btn" onclick="filterCheat('cloud', this)">Cloud</button>
+      <button class="filter-btn" onclick="filterCheat('ai', this)">AI</button>
+      <button class="filter-btn" onclick="filterCheat('general', this)">General</button>
+    </div>
+    <div class="cheatsheet" id="cheatsheet-grid"></div>
+  </div>
+
+  <!-- ===== VIEW: TABLE ===== -->
+  <div id="view-table" class="view">
+    <div class="section-title">Low vs Medium vs High — Side by Side</div>
+    <div style="overflow-x:auto; margin-bottom:32px;">
+      <table class="differ-table">
+        <thead>
+          <tr>
+            <th>Dimension</th>
+            <th>🟢 LOW</th>
+            <th>🟡 MEDIUM</th>
+            <th>🔴 HIGH</th>
+          </tr>
+        </thead>
+        <tbody id="differ-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- end app -->
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const QUESTIONS = [
+  // TPSQ
+  { id:'t1', section:'tpsq', q:'Does the supplier hold a current, independent security certification?', hint:'ISO 27001, SOC 2 Type II, or equivalent are the gold standards. Self-attestation alone is not equivalent.', opts:[
+    {label:'Yes — ISO 27001 / SOC 2 Type II (current)', score:0},
+    {label:'Partial / self-assessed / certification expired', score:1},
+    {label:'No certifications at all', score:2}
+  ]},
+  { id:'t2', section:'tpsq', q:'Is multi-factor authentication (MFA) enforced for all users accessing systems that handle your data?', hint:'MFA being "available" is not the same as enforced. Ask for policy evidence.', opts:[
+    {label:'Enforced for all users + admin', score:0},
+    {label:'Enforced for admins only / partially deployed', score:1},
+    {label:'Not enforced or not documented', score:2}
+  ]},
+  { id:'t3', section:'tpsq', q:'How recent is the supplier\'s last penetration test?', hint:'Annual pen tests from an independent third party are the baseline expectation.', opts:[
+    {label:'Within 12 months (third-party conducted)', score:0},
+    {label:'12–24 months ago or internal only', score:1},
+    {label:'Never done / >24 months / refused to share', score:2}
+  ]},
+  { id:'t4', section:'tpsq', q:'Does the supplier have a documented and tested Incident Response Plan (IRP)?', hint:'Tested means tabletop exercises or live simulations have occurred, with records.', opts:[
+    {label:'Yes — documented, tested, available to review', score:0},
+    {label:'Documented but not tested or partially complete', score:1},
+    {label:'No IRP / refused to confirm', score:2}
+  ]},
+  { id:'t5', section:'tpsq', q:'Has the supplier experienced a material security breach in the last 24 months?', hint:'A "material" breach = one that affected customer data, resulted in regulatory notification, or caused financial/reputational damage.', opts:[
+    {label:'No breach history', score:0},
+    {label:'Minor incident, resolved with evidence provided', score:1},
+    {label:'Yes — material breach in last 24 months', score:2}
+  ]},
+  { id:'t6', section:'tpsq', q:'How cooperative was the supplier in completing the TPSQ?', hint:'Evasive responses or refusing certain sections is itself a risk indicator regardless of what\'s written.', opts:[
+    {label:'Fully cooperative, prompt, detailed responses', score:0},
+    {label:'Some gaps, delays, or vague answers in sections', score:1},
+    {label:'Refused sections / hostile / incomplete', score:2}
+  ]},
+  // CLOUD
+  { id:'c1', section:'cloud', q:'Where is the supplier\'s cloud infrastructure geographically located, relative to your data residency requirements?', hint:'GDPR requires data of EU citizens to stay in the EEA unless adequate safeguards exist. Always confirm jurisdiction.', opts:[
+    {label:'Confirmed within required jurisdiction', score:0},
+    {label:'Multi-region but with contractual controls', score:1},
+    {label:'Outside jurisdiction, no controls documented', score:2}
+  ]},
+  { id:'c2', section:'cloud', q:'How is your organisation\'s data isolated from other customers in the cloud environment?', hint:'Dedicated tenancy is strongest. Logical isolation is acceptable if encryption keys are per-tenant.', opts:[
+    {label:'Dedicated tenancy or strong logical isolation', score:0},
+    {label:'Standard shared tenancy with standard controls', score:1},
+    {label:'No isolation controls documented', score:2}
+  ]},
+  { id:'c3', section:'cloud', q:'Are cloud audit logs generated and monitored for your data environment?', hint:'Logs should be retained, immutable, and fed into a SIEM. Ask to see log retention periods.', opts:[
+    {label:'Comprehensive logs, SIEM integration, reviewed', score:0},
+    {label:'Logs exist but not actively monitored / no SIEM', score:1},
+    {label:'No audit logging in place', score:2}
+  ]},
+  { id:'c4', section:'cloud', q:'Who manages encryption keys for your data at rest in the cloud?', hint:'Customer-managed keys (CMK) = highest control. Provider-managed = acceptable. No encryption = critical fail.', opts:[
+    {label:'Customer-managed keys (CMK)', score:0},
+    {label:'Provider-managed keys (standard)', score:1},
+    {label:'No encryption at rest documented', score:2}
+  ]},
+  { id:'c5', section:'cloud', q:'Does the supplier use sub-processors or fourth parties who also have access to your cloud data?', hint:'Sub-processors must be disclosed, contractually bound, and flow-through DPAs should be in place.', opts:[
+    {label:'None, or fully disclosed with DPAs in place', score:0},
+    {label:'Some sub-processors, partial visibility', score:1},
+    {label:'Undisclosed / uncontrolled sub-processors', score:2}
+  ]},
+  // AI
+  { id:'a1', section:'ai', q:'Does the supplier\'s AI system process or have access to your organisation\'s data?', hint:'Even "anonymised" data can be re-identified. Confirm what data is ingested and for what purpose.', opts:[
+    {label:'AI does not process organisational data', score:0},
+    {label:'AI processes non-sensitive / aggregate data only', score:1},
+    {label:'AI processes PII, PHI, or sensitive business data', score:2}
+  ]},
+  { id:'a2', section:'ai', q:'Is your data used to train, fine-tune, or improve the supplier\'s AI models?', hint:'If your data trains their model, it effectively persists indefinitely and could surface in other customers\' outputs.', opts:[
+    {label:'Contractually prohibited / confirmed not used', score:0},
+    {label:'Opt-out available but not default', score:1},
+    {label:'Yes — used for training / no opt-out available', score:2}
+  ]},
+  { id:'a3', section:'ai', q:'Does the supplier have a formal AI governance or ethics policy?', hint:'Look for model cards, fairness testing records, and accountability owners. Vague commitments don\'t count.', opts:[
+    {label:'Formal policy, documented, available to review', score:0},
+    {label:'In development / partial / verbal commitment', score:1},
+    {label:'No AI governance policy exists', score:2}
+  ]},
+  { id:'a4', section:'ai', q:'Are AI-generated outputs subject to human review before consequential actions are taken?', hint:'If the AI autonomously triggers transactions, decisions, or communications without human sign-off, risk escalates.', opts:[
+    {label:'Human review mandatory for all consequential outputs', score:0},
+    {label:'Human review for critical decisions only', score:1},
+    {label:'Fully automated decisions, no human review', score:2}
+  ]},
+  { id:'a5', section:'ai', q:'Is the AI model used by the supplier a third-party foundation model (e.g. OpenAI, Google Gemini, etc.)?', hint:'Third-party models add an additional supply chain link. Check if the third-party\'s own terms permit your data use.', opts:[
+    {label:'In-house model or fully contracted custom deployment', score:0},
+    {label:'Third-party model with data processing agreements', score:1},
+    {label:'Third-party model, no DPA or data handling agreement', score:2}
+  ]},
+];
+
+const CHEAT_CARDS = [
+  { section:'tpsq', title:'Certifications', icon:'🏅', items:[
+    {level:'low', text:'ISO 27001 annual surveillance + SOC 2 Type II = strong baseline. Ask for certificate validity date.'},
+    {level:'med', text:'Self-assessed controls checklist or CSA STAR Level 1. Acceptable with compensating controls.'},
+    {level:'high', text:'No certifications at all, or only expired certificates. Treat self-attestation as unverified until evidence reviewed.'},
+  ]},
+  { section:'tpsq', title:'Encryption Standards', icon:'🔐', items:[
+    {level:'low', text:'AES-256 at rest, TLS 1.2+ in transit. Both documented in security policy.'},
+    {level:'med', text:'Encryption present but older standards (TLS 1.0/1.1), or only in transit (not at rest).'},
+    {level:'high', text:'No encryption at rest, or unable to confirm encryption is in use at all.'},
+  ]},
+  { section:'tpsq', title:'Access Control', icon:'🔑', items:[
+    {level:'low', text:'MFA enforced + RBAC + PAM for privileged accounts + access reviews on schedule.'},
+    {level:'med', text:'MFA available but not mandatory, or RBAC in place without regular access reviews.'},
+    {level:'high', text:'Shared accounts, no MFA, no evidence of least-privilege — admin access is uncontrolled.'},
+  ]},
+  { section:'tpsq', title:'Incident History', icon:'🚨', items:[
+    {level:'low', text:'No breaches. If minor incidents occurred, full post-incident reports were shared voluntarily.'},
+    {level:'med', text:'Historical minor incident with root-cause analysis and remediation evidence. Regulatory notification not required.'},
+    {level:'high', text:'Material breach in last 24 months, especially if involving customer data or requiring ICO / regulatory notification.'},
+  ]},
+  { section:'cloud', title:'Data Residency', icon:'🌍', items:[
+    {level:'low', text:'Data confirmed in UK/EEA (or your required jurisdiction). Contractual binding with no exceptions.'},
+    {level:'med', text:'Multi-region deployment but SCCs or adequacy decisions in place. Acceptable with DPA in contract.'},
+    {level:'high', text:'Data stored or processed in countries without adequate protection and no SCCs/adequacy decisions.'},
+  ]},
+  { section:'cloud', title:'Tenant Isolation', icon:'🏗️', items:[
+    {level:'low', text:'Dedicated instance or cryptographically separate logical isolation. Confirmed in architecture diagram.'},
+    {level:'med', text:'Shared multi-tenant environment with standard cloud provider isolation (acceptable for lower sensitivity data).'},
+    {level:'high', text:'No documented isolation. Cannot confirm data is not accessible to other tenants.'},
+  ]},
+  { section:'cloud', title:'Cloud Logging & SIEM', icon:'📋', items:[
+    {level:'low', text:'Immutable audit logs + SIEM integration + anomaly alerting + defined log retention period (≥12 months).'},
+    {level:'med', text:'Logs generated but not centralised or actively monitored. Retention unclear.'},
+    {level:'high', text:'No audit logging. Cannot determine who accessed what data or when.'},
+  ]},
+  { section:'cloud', title:'Sub-processors', icon:'🔗', items:[
+    {level:'low', text:'Full register of sub-processors disclosed. All have flow-through DPAs. Notification process for new additions.'},
+    {level:'med', text:'Some sub-processors listed but list may not be exhaustive. Partial DPA coverage.'},
+    {level:'high', text:'Sub-processors not disclosed. Or known sub-processors with no data processing agreements.'},
+  ]},
+  { section:'ai', title:'Data in AI', icon:'🤖', items:[
+    {level:'low', text:'AI feature is optional or used only on anonymised/synthetic data. Your org data never enters AI pipeline.'},
+    {level:'med', text:'AI processes non-sensitive internal data (e.g. metadata, usage patterns). Risk is manageable.'},
+    {level:'high', text:'PII, PHI, financial, or IP data fed into AI model — especially if to a third-party LLM.'},
+  ]},
+  { section:'ai', title:'AI Training on Your Data', icon:'🧠', items:[
+    {level:'low', text:'Contractually prohibited. Zero-retention API mode if third-party LLM used. Confirmed in writing.'},
+    {level:'med', text:'Opt-out available but not the default setting. Requires active steps to prevent.'},
+    {level:'high', text:'Default opt-in. No way to prevent your data training the model. Perpetual licence to use your data.'},
+  ]},
+  { section:'ai', title:'AI Decision Autonomy', icon:'⚙️', items:[
+    {level:'low', text:'AI only generates recommendations. Humans make and approve all consequential decisions.'},
+    {level:'med', text:'AI decisions in low-stakes flows only (e.g. spam filtering). Human override always available.'},
+    {level:'high', text:'AI autonomously triggers financial transactions, access grants, communications, or HR decisions.'},
+  ]},
+  { section:'general', title:'Knowing the Tipping Point', icon:'⚖️', items:[
+    {level:'low', text:'Mostly green signals, one or two amber items with mitigations. No automatic escalation triggers present.'},
+    {level:'med', text:'Mix of green and amber. No single showstopper. Needs contractual strengthening or compensating controls.'},
+    {level:'high', text:'Any single red flag = High. Volume of amber (4+) with no mitigations also tips to High. When in doubt, escalate.'},
+  ]},
+  { section:'general', title:'Asking Follow-up Questions', icon:'💬', items:[
+    {level:'low', text:'Supplier responds quickly with evidence. One follow-up clarification closes the loop. Cooperative tone.'},
+    {level:'med', text:'Supplier answers but evidence is not immediately available. Acceptable if received within agreed timeline.'},
+    {level:'high', text:'Supplier refuses, deflects, or provides inconsistent answers. Lack of transparency is itself a red flag.'},
+  ]},
+  { section:'general', title:'Regulatory Data in Scope', icon:'📜', items:[
+    {level:'low', text:'No personal data, no regulated data (PHI, payment data) in scope of the engagement.'},
+    {level:'med', text:'Some personal data in scope but minimised, and the supplier has a valid DPA and GDPR programme.'},
+    {level:'high', text:'GDPR special category data, HIPAA PHI, or PCI-DSS card data — with supplier controls insufficient.'},
+  ]},
+];
+
+const TABLE_ROWS = [
+  {dim:'Security Certifications', low:'ISO 27001 / SOC 2 Type II (current)', med:'Self-assessed or certification expired', high:'No certifications'},
+  {dim:'MFA Enforcement', low:'All users + privileged accounts', med:'Admins only or partial rollout', high:'Not in place'},
+  {dim:'Penetration Testing', low:'Annual, third-party, results shared', med:'Internal or >12 months old', high:'Never done or refused to share'},
+  {dim:'Incident Response Plan', low:'Documented + tested + shared', med:'Documented but not tested', high:'None or refused to confirm'},
+  {dim:'Breach History', low:'Clean record', med:'Minor historical (resolved)', high:'Material breach <24 months'},
+  {dim:'TPSQ Cooperation', low:'Full, prompt, evidenced', med:'Gaps or delays, gaps resolved', high:'Refused sections / evasive'},
+  {dim:'Data Residency', low:'Confirmed in jurisdiction', med:'Multi-region, SCCs in place', high:'Outside jurisdiction, uncontrolled'},
+  {dim:'Tenant Isolation', low:'Dedicated / strong logical', med:'Standard shared tenancy', high:'No isolation documented'},
+  {dim:'Audit Logging', low:'SIEM + immutable + monitored', med:'Logs exist, not monitored', high:'No audit logging'},
+  {dim:'Encryption (at rest)', low:'AES-256, CMK available', med:'Provider-managed, documented', high:'Not in place / unconfirmed'},
+  {dim:'Sub-processors', low:'Fully disclosed + DPAs', med:'Partial disclosure', high:'Undisclosed / no DPAs'},
+  {dim:'AI Data Use', low:'AI does not touch org data', med:'Non-sensitive data only', high:'PII/PHI/IP in AI pipeline'},
+  {dim:'AI Training on Your Data', low:'Contractually prohibited', med:'Opt-out available', high:'Default opt-in, no control'},
+  {dim:'AI Decision Autonomy', low:'Recommendations only', med:'Low-stakes auto-decisions', high:'Autonomous on critical decisions'},
+  {dim:'AI Governance Policy', low:'Formal policy + evidence', med:'In development / partial', high:'None exists'},
+  {dim:'Business Impact (Disruption)', low:'Low — easily replaced', med:'Moderate — days to recover', high:'Critical — operations halt'},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let currentSection = 'all';
+let answers = {}; // id -> score
+
+// ============================================================
+// VIEWS
+// ============================================================
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'decision') renderQuestions();
+  if (name === 'cheatsheet') renderCheatsheet('all');
+  if (name === 'table') renderTable();
+}
+
+// ============================================================
+// DECISION TOOL
+// ============================================================
+function selectSection(sec, btn) {
+  currentSection = sec;
+  document.querySelectorAll('.section-sel-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  answers = {};
+  renderQuestions();
+}
+
+function getFilteredQuestions() {
+  if (currentSection === 'all') return QUESTIONS;
+  return QUESTIONS.filter(q => q.section === currentSection);
+}
+
+function renderQuestions() {
+  const qs = getFilteredQuestions();
+  const list = document.getElementById('questions-list');
+  list.innerHTML = '';
+
+  qs.forEach((q, i) => {
+    const div = document.createElement('div');
+    div.className = 'question-item' + (answers[q.id] !== undefined ? ' answered' : '');
+    div.style.animationDelay = (i * 0.04) + 's';
+
+    const sectionLabel = {tpsq:'TPSQ', cloud:'CLOUD', ai:'AI'}[q.section];
+
+    div.innerHTML = `
+      <div class="q-number"><span style="color:var(--accent)">[${sectionLabel}]</span> Q${i+1} of ${qs.length}</div>
+      <div class="q-text">${q.q}</div>
+      <div class="q-options" id="opts-${q.id}">
+        ${q.opts.map((o, oi) => `
+          <button class="q-opt ${answers[q.id] === o.score && answers[q.id] === 0 ? 'selected-low' : answers[q.id] === o.score && answers[q.id] === 1 ? 'selected-med' : answers[q.id] === o.score && answers[q.id] === 2 ? 'selected-high' : ''}"
+            onclick="selectAnswer('${q.id}', ${o.score}, this, ${oi})">
+            ${o.label}
+          </button>
+        `).join('')}
+      </div>
+      <div class="q-hint ${answers[q.id] !== undefined ? 'show' : ''}" id="hint-${q.id}">💡 ${q.hint}</div>
+    `;
+    list.appendChild(div);
+  });
+  updateProgress();
+}
+
+function selectAnswer(qid, score, btn, optIndex) {
+  answers[qid] = score;
+  const opts = btn.parentElement.querySelectorAll('.q-opt');
+  opts.forEach((o, i) => {
+    o.className = 'q-opt';
+    if (i === optIndex) {
+      o.className = 'q-opt ' + (score === 0 ? 'selected-low' : score === 1 ? 'selected-med' : 'selected-high');
+    }
+  });
+  const hint = document.getElementById('hint-' + qid);
+  if (hint) hint.classList.add('show');
+  btn.closest('.question-item').classList.add('answered');
+  updateProgress();
+  updateVerdict();
+}
+
+function updateProgress() {
+  const qs = getFilteredQuestions();
+  const total = qs.length;
+  const answered = qs.filter(q => answers[q.id] !== undefined).length;
+  const pct = total ? Math.round(answered / total * 100) : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = answered + ' / ' + total;
+}
+
+function updateVerdict() {
+  const qs = getFilteredQuestions();
+  const answered = qs.filter(q => answers[q.id] !== undefined);
+  if (!answered.length) return;
+
+  const counts = {0:0, 1:0, 2:0};
+  answered.forEach(q => counts[answers[q.id]]++);
+  const total = answered.length;
+
+  const pctHigh = counts[2] / total * 100;
+  const pctMed = counts[1] / total * 100;
+  const pctLow = counts[0] / total * 100;
+
+  document.getElementById('pct-high').textContent = Math.round(pctHigh) + '%';
+  document.getElementById('pct-med').textContent = Math.round(pctMed) + '%';
+  document.getElementById('pct-low').textContent = Math.round(pctLow) + '%';
+  document.getElementById('bar-high').style.width = pctHigh + '%';
+  document.getElementById('bar-med').style.width = pctMed + '%';
+  document.getElementById('bar-low').style.width = pctLow + '%';
+
+  // Weighted score: low=0, med=1, high=2, max=2
+  const weightedScore = answered.reduce((sum, q) => sum + answers[q.id], 0) / (total * 2) * 100;
+  const displayScore = Math.round(weightedScore);
+
+  document.getElementById('ring-score').textContent = displayScore;
+
+  // Ring visualisation
+  const circumference = 2 * Math.PI * 52;
+  const fill = document.getElementById('ring-fill');
+  const filled = circumference * (weightedScore / 100);
+  fill.setAttribute('stroke-dasharray', filled + ' ' + (circumference - filled));
+
+  // Verdict logic
+  let level, color, colorVar;
+  if (counts[2] >= 1 || weightedScore >= 60) {
+    level = 'HIGH RISK'; color = 'verdict-high'; colorVar = '#ff4d6d';
+  } else if (weightedScore >= 25 || counts[1] >= 2) {
+    level = 'MEDIUM RISK'; color = 'verdict-med'; colorVar = '#f5a623';
+  } else {
+    level = 'LOW RISK'; color = 'verdict-low'; colorVar = '#00e5a0';
+  }
+
+  const vtag = document.getElementById('verdict-tag');
+  vtag.textContent = level;
+  vtag.className = 'verdict-tag ' + color;
+  document.getElementById('ring-score').style.color = colorVar;
+  fill.setAttribute('stroke', colorVar);
+
+  // Actions
+  const actionMap = {
+    'LOW RISK': [
+      {cls:'low', text:'Proceed with standard contractual DPA'},
+      {cls:'low', text:'Conduct annual review / reassessment'},
+      {cls:'low', text:'Confirm onboarding with standard approval process'},
+    ],
+    'MEDIUM RISK': [
+      {cls:'med', text:'Request missing evidence for amber items'},
+      {cls:'med', text:'Strengthen DPA with specific data handling clauses'},
+      {cls:'med', text:'Schedule 6-month interim review'},
+      {cls:'med', text:'Define compensating controls for gaps identified'},
+    ],
+    'HIGH RISK': [
+      {cls:'high', text:'Escalate to senior leadership or CISO for approval'},
+      {cls:'high', text:'Do NOT onboard until critical items are resolved'},
+      {cls:'high', text:'Issue formal Remediation Requirements Notice'},
+      {cls:'high', text:'Consider alternative vendors'},
+      {cls:'high', text:'If onboarding is critical, impose strict contractual mitigations'},
+    ],
+  };
+
+  const actions = actionMap[level];
+  document.getElementById('actions-list').innerHTML = actions.map(a =>
+    `<div class="action-item ${a.cls}">${a.text}</div>`
+  ).join('');
+}
+
+function resetAssessment() {
+  answers = {};
+  renderQuestions();
+  document.getElementById('ring-score').textContent = '—';
+  document.getElementById('ring-score').style.color = 'var(--text-muted)';
+  document.getElementById('ring-fill').setAttribute('stroke', '#1e2430');
+  document.getElementById('ring-fill').setAttribute('stroke-dasharray', '0 327');
+  document.getElementById('verdict-tag').textContent = 'Awaiting input';
+  document.getElementById('verdict-tag').className = 'verdict-tag verdict-none';
+  document.getElementById('actions-list').innerHTML = '<div class="action-item med">Answer questions to see recommended actions</div>';
+  document.getElementById('pct-high').textContent = '0%';
+  document.getElementById('pct-med').textContent = '0%';
+  document.getElementById('pct-low').textContent = '0%';
+  document.getElementById('bar-high').style.width = '0%';
+  document.getElementById('bar-med').style.width = '0%';
+  document.getElementById('bar-low').style.width = '0%';
+}
+
+// ============================================================
+// CHEAT SHEET
+// ============================================================
+function renderCheatsheet(filter) {
+  const grid = document.getElementById('cheatsheet-grid');
+  const cards = filter === 'all' ? CHEAT_CARDS : CHEAT_CARDS.filter(c => c.section === filter);
+  grid.innerHTML = cards.map(c => `
+    <div class="cs-card">
+      <div class="cs-card-head"><span class="cs-icon">${c.icon}</span>${c.title}</div>
+      <div class="cs-card-body">
+        ${c.items.map(i => `
+          <div class="cs-row">
+            <span class="cs-level ${i.level}">${i.level}</span>
+            <span class="cs-text">${i.text}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterCheat(filter, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCheatsheet(filter);
+}
+
+// ============================================================
+// TABLE
+// ============================================================
+function renderTable() {
+  const tbody = document.getElementById('differ-tbody');
+  tbody.innerHTML = TABLE_ROWS.map(r => `
+    <tr>
+      <td>${r.dim}</td>
+      <td>${r.low}</td>
+      <td>${r.med}</td>
+      <td>${r.high}</td>
+    </tr>
+  `).join('');
+}
+
+// Init
+renderQuestions();
+</script>
+</body>
+</html>
+
+
+
+
+Sent from my iPhone
